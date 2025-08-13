@@ -1,0 +1,3 @@
+@echo off
+echo 正在启动NexaFi质押平台...
+npm run dev

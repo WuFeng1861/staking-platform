@@ -1,0 +1,156 @@
+import { ref, computed } from 'vue'
+import { web3Wallet } from '@/utils/web3'
+import { STORAGE_KEYS } from '@/config'
+
+const isConnected = ref(false)
+const address = ref('')
+const chainId = ref(null)
+const balance = ref('0')
+const isConnecting = ref(false)
+
+// 连接钱包
+const connectWallet = async () => {
+  try {
+    isConnecting.value = true
+    const result = await web3Wallet.connect()
+    
+    isConnected.value = result.isConnected
+    address.value = result.address
+    chainId.value = result.chainId
+    
+    // 保存到本地存储
+    localStorage.setItem(STORAGE_KEYS.WALLET_ADDRESS, result.address)
+    
+    // 获取余额
+    await updateBalance()
+    
+    return result
+  } catch (error) {
+    console.error('Failed to connect wallet:', error)
+    throw error
+  } finally {
+    isConnecting.value = false
+  }
+}
+
+// 断开钱包连接
+const disconnectWallet = () => {
+  web3Wallet.disconnect()
+  isConnected.value = false
+  address.value = ''
+  chainId.value = null
+  balance.value = '0'
+  
+  // 清除本地存储
+  localStorage.removeItem(STORAGE_KEYS.WALLET_ADDRESS)
+}
+
+// 更新余额
+const updateBalance = async () => {
+  try {
+    if (isConnected.value) {
+      const newBalance = await web3Wallet.getBalance()
+      balance.value = newBalance
+    }
+  } catch (error) {
+    console.error('Failed to update balance:', error)
+  }
+}
+
+// 切换网络
+const switchNetwork = async (targetChainId) => {
+  try {
+    await web3Wallet.switchNetwork(targetChainId)
+    chainId.value = targetChainId
+    await updateBalance()
+    return true
+  } catch (error) {
+    console.error('Failed to switch network:', error)
+    throw error
+  }
+}
+
+// 格式化地址
+const formatAddress = computed(() => {
+  return address.value ? web3Wallet.formatAddress(address.value) : ''
+})
+
+// 获取当前网络信息
+const currentNetwork = computed(() => {
+  return web3Wallet.getCurrentNetwork()
+})
+
+// 检查是否支持当前网络
+const isSupportedNetwork = computed(() => {
+  return web3Wallet.isSupportedNetwork()
+})
+
+// 格式化余额
+const formattedBalance = computed(() => {
+  const bal = parseFloat(balance.value)
+  if (bal === 0) return '0'
+  if (bal < 0.0001) return '< 0.0001'
+  return bal.toFixed(4)
+})
+
+// 初始化钱包连接（页面加载时检查）
+const initWallet = async () => {
+  try {
+    const savedAddress = localStorage.getItem(STORAGE_KEYS.WALLET_ADDRESS)
+    if (savedAddress && web3Wallet.isWalletInstalled()) {
+      // 尝试重新连接
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' })
+      if (accounts.length > 0 && accounts[0].toLowerCase() === savedAddress.toLowerCase()) {
+        await connectWallet()
+      }
+    }
+  } catch (error) {
+    console.error('Failed to initialize wallet:', error)
+  }
+}
+
+// 监听钱包事件
+const setupWalletListeners = () => {
+  if (typeof window !== 'undefined' && window.ethereum) {
+    // 监听账户变化
+    window.ethereum.on('accountsChanged', (accounts) => {
+      if (accounts.length === 0) {
+        disconnectWallet()
+      } else if (accounts[0] !== address.value) {
+        address.value = accounts[0]
+        updateBalance()
+      }
+    })
+
+    // 监听网络变化
+    window.ethereum.on('chainChanged', (newChainId) => {
+      chainId.value = parseInt(newChainId, 16)
+      updateBalance()
+    })
+  }
+}
+
+export const useWallet = () => {
+  return {
+    // 状态
+    isConnected,
+    address,
+    chainId,
+    balance,
+    isConnecting,
+    
+    // 计算属性
+    formatAddress,
+    currentNetwork,
+    isSupportedNetwork,
+    formattedBalance,
+    
+    // 方法
+    connectWallet,
+    disconnectWallet,
+    updateBalance,
+    switchNetwork,
+    initWallet,
+    setupWalletListeners
+  }
+}

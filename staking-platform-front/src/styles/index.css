@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply transition-colors duration-300;
+  }
+}
+
+@layer components {
+  /* Button Components */
+  .btn-primary {
+    @apply bg-nexafi-primary hover:bg-nexafi-primary/90 text-white font-medium px-6 py-3 rounded-lg transition-all duration-200 shadow-nexafi hover:shadow-nexafi-lg;
+  }
+  
+  .btn-secondary {
+    @apply bg-light-surface dark:bg-dark-surface hover:bg-light-border dark:hover:bg-dark-border text-light-text dark:text-dark-text font-medium px-6 py-3 rounded-lg transition-all duration-200 border border-light-border dark:border-dark-border;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-nexafi-primary text-nexafi-primary hover:bg-nexafi-primary hover:text-white font-medium px-6 py-3 rounded-lg transition-all duration-200;
+  }
+  
+  .btn-outline-secondary {
+    @apply border-2 border-nexafi-accent text-nexafi-accent hover:bg-nexafi-accent hover:text-white font-medium px-6 py-3 rounded-lg transition-all duration-200;
+  }
+  
+  /* Card Components */
+  .card {
+    @apply bg-light-background dark:bg-dark-background border border-light-border dark:border-dark-border rounded-xl transition-all duration-200;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  .dark .card {
+    box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.15), 0 2px 4px -1px rgba(255, 255, 255, 0.1);
+  }
+  
+  .card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+  }
+  
+  .dark .card:hover {
+    box-shadow: 0 10px 15px -3px rgba(255, 255, 255, 0.15), 0 4px 6px -2px rgba(255, 255, 255, 0.1);
+  }
+  
+  .card-surface {
+    @apply bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-xl;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  .dark .card-surface {
+    box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.15), 0 2px 4px -1px rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Input Components */
+  .input-field {
+    @apply w-full px-4 py-3 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-light-text dark:text-dark-text placeholder-light-text-secondary dark:placeholder-dark-text-secondary focus:outline-none focus:ring-2 focus:ring-nexafi-primary focus:border-transparent transition-all duration-200;
+  }
+  
+  /* Navigation Components */
+  .nav-item {
+    @apply flex items-center px-4 py-3 text-light-text-secondary dark:text-dark-text-secondary hover:text-nexafi-primary hover:bg-light-surface dark:hover:bg-dark-surface rounded-lg transition-all duration-200 cursor-pointer;
+  }
+  
+  .nav-item.active {
+    @apply text-nexafi-primary bg-nexafi-primary/10 font-medium;
+  }
+  
+  /* Text Components */
+  .text-primary {
+    @apply text-light-text dark:text-dark-text;
+  }
+  
+  .text-secondary {
+    @apply text-light-text-secondary dark:text-dark-text-secondary;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-nexafi-gradient-from to-nexafi-gradient-to bg-clip-text text-transparent;
+  }
+  
+  /* Layout Components */
+  .container-main {
+    @apply bg-light-background dark:bg-dark-background min-h-screen transition-colors duration-300;
+  }
+  
+  .sidebar {
+    @apply bg-light-surface dark:bg-dark-surface border-r border-light-border dark:border-dark-border;
+  }
+  
+  /* Animation Components - 修复循环依赖问题 */
+  .fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  .slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  /* Status Components */
+  .status-success {
+    @apply text-light-success dark:text-dark-success bg-light-success/10 dark:bg-dark-success/10 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .status-warning {
+    @apply text-light-warning dark:text-dark-warning bg-light-warning/10 dark:bg-dark-warning/10 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .status-error {
+    @apply text-light-error dark:text-dark-error bg-light-error/10 dark:bg-dark-error/10 px-3 py-1 rounded-full text-sm font-medium;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .gradient-border {
+    background: linear-gradient(135deg, #6366F1, #8B5CF6) padding-box,
+                linear-gradient(135deg, #6366F1, #8B5CF6) border-box;
+    border: 2px solid transparent;
+  }
+}
+
+/* 全局动画关键帧 */
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
