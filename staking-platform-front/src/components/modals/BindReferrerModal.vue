@@ -38,6 +38,7 @@
           <ul class="list-disc pl-5 mt-2 space-y-1">
             <li>{{ t('referral.ethReward') }}</li>
             <li>{{ t('referral.bnbReward') }}</li>
+            <li>{{ t('referral.usdtReward') }}</li>
             <li>{{ t('referral.nexafiReward') }}</li>
           </ul>
         </div>

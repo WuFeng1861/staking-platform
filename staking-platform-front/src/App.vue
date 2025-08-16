@@ -1,5 +1,8 @@
 <template>
   <div class="container-main">
+    <!-- 全局Loading -->
+    <GlobalLoading />
+    
     <!-- 绑定上级模态框 -->
     <BindReferrerModal 
       :is-open="isBindReferrerModalOpen" 
@@ -64,10 +67,12 @@ import MobileHeader from '@/components/layout/MobileHeader.vue'
 import MobileNavigation from '@/components/layout/MobileNavigation.vue'
 import MobileDrawer from '@/components/layout/MobileDrawer.vue'
 import BindReferrerModal from '@/components/modals/BindReferrerModal.vue'
+import GlobalLoading from '@/components/common/GlobalLoading.vue'
 
 const { loadTheme } = useTheme()
 const { loadLanguage } = useI18n()
 const { initWallet, setupWalletListeners } = useWallet()
+
 
 // 推荐人相关
 const hasReferrer = ref(false)

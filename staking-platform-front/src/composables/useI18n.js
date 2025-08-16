@@ -46,6 +46,7 @@ const messages = {
       connected: 'Connected',
       address: 'Address',
       balance: 'Balance',
+      yourBalances: 'Your Balances',
       network: 'Network',
       switchNetwork: 'Switch Network',
       switchTo: 'Switch to',
@@ -70,6 +71,7 @@ const messages = {
       flexible: 'Flexible',
       days: 'days',
       minStake: 'Min Stake',
+      maxStake: 'Max Stake',
       participants: 'Participants',
       stakingHistory: 'Staking History',
       rewardHistory: 'Reward History',
@@ -83,7 +85,14 @@ const messages = {
       chain: 'Chain',
       rewards: 'Rewards',
       noStakes: 'No active stakes found',
-      startStaking: 'Start Staking'
+      startStaking: 'Start Staking',
+      stakeToken: 'Stake {token}',
+      enterAmount: 'Enter amount',
+      estimatedRewards: 'Estimated Rewards',
+      year: 'year',
+      min: 'Min',
+      max: 'Max',
+      stakeSuccess: 'Staking successful!'
     },
     
     // 仪表板
@@ -129,7 +138,11 @@ const messages = {
       networkError: 'Network error',
       transactionFailed: 'Transaction failed',
       walletNotConnected: 'Wallet not connected',
-      unsupportedToken: 'Unsupported token'
+      unsupportedToken: 'Unsupported token',
+      enterAmount: 'Please enter an amount',
+      amountTooSmall: 'Amount is below minimum stake',
+      amountTooLarge: 'Amount exceeds maximum stake',
+      stakingFailed: 'Staking operation failed'
     },
     
     // 邀请
@@ -152,7 +165,7 @@ const messages = {
       bindDescription: 'After binding a referrer, your first-time staking will bring the following rewards to your referrer:',
       ethReward: 'ETH: 20 USDT reward when staking more than 0.027 ETH',
       bnbReward: 'BNB: 20 USDT reward when staking more than 0.125 BNB',
-      arbReward: 'ARB: 20 USDT reward when staking more than 100 USDT',
+      usdtReward: 'USDT: 20 USDT reward when staking more than 100 USDT',
       nexafiReward: 'NexaFi: 20 USDT reward when staking more than 10,000 NexaFi'
     },
     
@@ -212,6 +225,7 @@ const messages = {
       connected: '已连接',
       address: '地址',
       balance: '余额',
+      yourBalances: '您的余额',
       network: '网络',
       switchNetwork: '切换网络',
       switchTo: '切换到',
@@ -236,6 +250,7 @@ const messages = {
       flexible: '灵活',
       days: '天',
       minStake: '最小质押',
+      maxStake: '最大质押',
       participants: '参与者',
       stakingHistory: '质押历史',
       rewardHistory: '奖励历史',
@@ -249,7 +264,14 @@ const messages = {
       chain: '链',
       rewards: '奖励',
       noStakes: '未找到活跃质押',
-      startStaking: '开始质押'
+      startStaking: '开始质押',
+      stakeToken: '质押 {token}',
+      enterAmount: '输入数量',
+      estimatedRewards: '预估奖励',
+      year: '年',
+      min: '最小',
+      max: '最大',
+      stakeSuccess: '质押成功！'
     },
     
     // 仪表板
@@ -295,7 +317,11 @@ const messages = {
       networkError: '网络错误',
       transactionFailed: '交易失败',
       walletNotConnected: '钱包未连接',
-      unsupportedToken: '不支持的代币'
+      unsupportedToken: '不支持的代币',
+      enterAmount: '请输入金额',
+      amountTooSmall: '金额低于最小质押要求',
+      amountTooLarge: '金额超过最大质押限制',
+      stakingFailed: '质押操作失败'
     },
     
     // 邀请
@@ -318,7 +344,7 @@ const messages = {
       bindDescription: '绑定上级后，您的首次质押将为上级带来以下奖励：',
       ethReward: 'ETH：质押超过0.027 ETH时，上级获得20 USDT奖励',
       bnbReward: 'BNB：质押超过0.125 BNB时，上级获得20 USDT奖励',
-      arbReward: 'ARB：质押超过100 USDT时，上级获得20 USDT奖励',
+      usdtReward: 'USDT：质押超过100 USDT时，上级获得20 USDT奖励',
       nexafiReward: 'NexaFi：质押超过10,000 NexaFi时，上级获得20 USDT奖励'
     },
     

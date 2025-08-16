@@ -352,12 +352,6 @@ export const getSupportedChains = () => {
 // 邀请链接配置
 export const REFERRAL_CONFIG = {
   baseUrl: 'https://nexafi.com/ref/',
-  rewardRate: 0.05, // 5% 推荐奖励
-  levels: [
-    { level: 1, rate: 0.05 },
-    { level: 2, rate: 0.02 },
-    { level: 3, rate: 0.01 }
-  ]
 }
 
 // API 配置
@@ -367,6 +361,36 @@ export const API_CONFIG = {
     : 'http://localhost:3001',
   timeout: 10000,
   retryAttempts: 3
+}
+
+// 代币合约地址配置（按链分类）
+export const TOKEN_CONTRACTS = {
+  ethereum: {
+    // 以太坊主网上的代币合约地址
+    ETH: null, // 原生代币没有合约地址
+    USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+    NexaFi: '0x123456' // 测试地址
+  },
+  bsc: {
+    // BSC上的代币合约地址
+    BNB: null, // 原生代币没有合约地址
+    USDT: '0x55d398326f99059fF775485246999027B3197955',
+    NexaFi: '0xA5a386410307C525E4707C7f9C3de73b19EC4Fb6'
+  },
+  arbitrum: {
+    // Arbitrum上的代币合约地址
+    ETH: null, // 原生代币没有合约地址
+    USDT: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+    NexaFi: '0x123456' // 测试地址
+  }
+}
+
+// 获取指定链上指定代币的合约地址
+export const getTokenContract = (chainKey, tokenSymbol) => {
+  if (!TOKEN_CONTRACTS[chainKey] || !TOKEN_CONTRACTS[chainKey][tokenSymbol]) {
+    return null;
+  }
+  return TOKEN_CONTRACTS[chainKey][tokenSymbol];
 }
 
 // 导出图片配置

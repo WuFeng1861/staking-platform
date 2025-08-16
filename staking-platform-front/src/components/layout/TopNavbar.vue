@@ -112,7 +112,7 @@
           <div class="mb-3">
             <div class="text-sm text-secondary">{{ t('wallet.balance') }}</div>
             <div class="text-primary font-medium">
-              {{ formattedBalance }} {{ currentNetwork?.symbol || 'ETH' }}
+              {{ formattedBalance }} {{ currentNetwork?.nativeCurrency?.symbol || 'ETH' }}
             </div>
           </div>
           
@@ -186,7 +186,9 @@ const toggleWalletDropdown = () => {
 // 切换网络
 const switchToNetwork = async (chainId) => {
   try {
+    console.log('TopNavbar: Switching to network with chainId:', chainId);
     await switchNetwork(chainId)
+    console.log('TopNavbar: Network switched, current network:', currentNetwork.value);
     showNetworkDropdown.value = false
   } catch (error) {
     console.error('Failed to switch network:', error)

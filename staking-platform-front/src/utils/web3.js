@@ -32,12 +32,20 @@ class Web3Wallet {
       
       // 获取网络信息
       const network = await this.provider.getNetwork()
-      this.chainId = Number(network.chainId)
+      console.log('Network on connect:', network);
+      
+      // 确保 chainId 格式与 getCurrentNetwork 中的比较一致
+      this.chainId = parseInt(network.chainId.toString())
+      console.log('Set chainId on connect:', this.chainId);
       
       this.isConnected = true
       
       // 监听账户变化
       this.setupEventListeners()
+      
+      // 检查当前网络是否在支持列表中
+      const currentNetwork = this.getCurrentNetwork();
+      console.log('Current network on connect:', currentNetwork);
       
       return {
         address: this.address,
@@ -68,15 +76,33 @@ class Web3Wallet {
   // 切换网络
   async switchNetwork(chainId) {
     try {
-      const hexChainId = `0x${chainId.toString(16)}`
+      console.log('Switching to network with chainId:', chainId);
+      
+      // 检查 chainId 是否已经是十六进制格式
+      const hexChainId = chainId.toString().startsWith('0x') ? chainId : `0x${chainId.toString(16)}`
+      console.log('Hex chainId for wallet_switchEthereumChain:', hexChainId);
       
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: hexChainId }]
       })
       
-      this.chainId = chainId
-      return true
+      // 网络切换后重新初始化 provider 和 signer
+      this.provider = new ethers.BrowserProvider(window.ethereum)
+      this.signer = await this.provider.getSigner()
+      
+      // 更新 chainId
+      const network = await this.provider.getNetwork()
+      console.log('Network after switch:', network);
+      
+      // 确保 chainId 格式与 getCurrentNetwork 中的比较一致
+      this.chainId = parseInt(network.chainId.toString())
+      console.log('Updated this.chainId:', this.chainId);
+      
+      return {
+        chainId: this.chainId,
+        success: true
+      }
     } catch (error) {
       // 如果网络不存在，尝试添加网络
       if (error.code === 4902) {
@@ -88,6 +114,8 @@ class Web3Wallet {
 
   // 添加网络
   async addNetwork(chainId) {
+    console.log('Adding network with chainId:', chainId);
+    
     const networkConfig = Object.values(NETWORKS).find(
       config => parseInt(config.chainId, 16) === chainId
     )
@@ -95,6 +123,8 @@ class Web3Wallet {
     if (!networkConfig) {
       throw new Error(`Unsupported network: ${chainId}`)
     }
+
+    console.log('Network config for adding:', networkConfig);
 
     try {
       await window.ethereum.request({
@@ -108,8 +138,22 @@ class Web3Wallet {
         }]
       })
       
-      this.chainId = chainId
-      return true
+      // 网络添加后重新初始化 provider 和 signer
+      this.provider = new ethers.BrowserProvider(window.ethereum)
+      this.signer = await this.provider.getSigner()
+      
+      // 更新 chainId
+      const network = await this.provider.getNetwork()
+      console.log('Network after add:', network);
+      
+      // 确保 chainId 格式与 getCurrentNetwork 中的比较一致
+      this.chainId = parseInt(network.chainId.toString())
+      console.log('Updated this.chainId after add:', this.chainId);
+      
+      return {
+        chainId: this.chainId,
+        success: true
+      }
     } catch (error) {
       console.error('Failed to add network:', error)
       throw error
@@ -180,9 +224,24 @@ class Web3Wallet {
 
   // 获取当前网络信息
   getCurrentNetwork() {
-    return Object.values(NETWORKS).find(
-      config => parseInt(config.chainId, 16) === this.chainId
-    )
+    // 如果没有 chainId，返回 null
+    if (!this.chainId) {
+      return null;
+    }
+    
+    // 将 chainId 转换为十进制数字进行比较
+    // 这样无论 chainId 是十六进制字符串还是数字，都能正确匹配
+    const decimalChainId = typeof this.chainId === 'string' && this.chainId.startsWith('0x') 
+      ? parseInt(this.chainId, 16) 
+      : Number(this.chainId);
+    
+    // 查找匹配的网络
+    const network = Object.values(NETWORKS).find(config => {
+      const configChainId = parseInt(config.chainId, 16);
+      return configChainId === decimalChainId;
+    });
+    
+    return network;
   }
 
   // 格式化地址
@@ -205,7 +264,13 @@ class Web3Wallet {
 
       // 监听网络变化
       window.ethereum.on('chainChanged', (chainId) => {
+        console.log('Chain changed event:', chainId);
         this.chainId = parseInt(chainId, 16)
+        console.log('Updated chainId from event:', this.chainId);
+        
+        // 检查当前网络
+        const currentNetwork = this.getCurrentNetwork();
+        console.log('Current network after chain change:', currentNetwork);
       })
     }
   }

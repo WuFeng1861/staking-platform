@@ -7,7 +7,21 @@
       @close="isBindReferrerModalOpen = false"
       @bind="handleReferrerBound"
     />
+    
+    <!-- 质押模态框 -->
+    <StakeModal
+      :is-open="isStakeModalOpen"
+      :pool="selectedPool || {}"
+      :balance="currentTokenBalance"
+      @close="isStakeModalOpen = false"
+      @stake="handleStake"
+    />
     <h1 class="text-2xl font-bold text-primary mb-6">{{ t('staking.title') }}</h1>
+    
+    <!-- 代币余额 -->
+    <div class="mb-6">
+      <TokenBalances />
+    </div>
     
     <!-- 链选择器 -->
     <div class="mb-6">
@@ -109,21 +123,21 @@
           <button 
             class="btn-primary flex-1"
             @click="openStakeModal(pool)"
-            :disabled="!isConnected || chainId !== currentChainData.chainInfo.chainId"
+            :disabled="!isConnected || chainId !== parseInt(currentChainData.chainInfo.chainId, 16)"
           >
             {{ t('staking.stake') }}
           </button>
           <button 
             class="btn-secondary flex-1"
             @click="openUnstakeModal(pool)"
-            :disabled="!isConnected || chainId !== currentChainData.chainInfo.chainId"
+            :disabled="!isConnected || chainId !== parseInt(currentChainData.chainInfo.chainId, 16)"
           >
             {{ t('staking.unstake') }}
           </button>
         </div>
         
         <!-- 网络不匹配提示 -->
-        <div v-if="isConnected && chainId !== currentChainData.chainInfo.chainId" class="mt-3 text-center">
+        <div v-if="isConnected && chainId !== parseInt(currentChainData.chainInfo.chainId, 16)" class="mt-3 text-center">
           <button 
             class="text-sm text-nexafi-primary hover:text-nexafi-primary/80"
             @click="switchToChain(currentChainData.chainInfo.chainId)"
@@ -229,15 +243,23 @@ import {
   REFERRAL_CONFIG
 } from '@/config'
 import { getUserStakingPools } from '@/data/stakingData'
+import { getTokenBalance } from '@/data/tokenBalances'
 import BindReferrerModal from '@/components/modals/BindReferrerModal.vue'
+import StakeModal from '@/components/modals/StakeModal.vue'
+import TokenBalances from '@/components/common/TokenBalances.vue'
 
 const { t } = useI18n()
-const { isConnected, chainId, switchNetwork } = useWallet()
+const { isConnected, chainId, switchNetwork, updateBalance } = useWallet()
 
 // 推荐人相关
 const hasReferrer = ref(false)
 const referrerAddress = ref('')
 const isBindReferrerModalOpen = ref(false)
+
+// 质押模态框相关
+const isStakeModalOpen = ref(false)
+const selectedPool = ref(null)
+const currentTokenBalance = ref('0')
 
 // 支持的链
 const supportedChains = getSupportedChains()
@@ -299,8 +321,18 @@ const handleImageError = (event) => {
 
 // 打开质押模态框
 const openStakeModal = (pool) => {
-  console.log('Open stake modal for pool:', pool)
-  // 实际项目中应该打开模态框
+  if (!isConnected.value) {
+    console.log('Wallet not connected')
+    return
+  }
+  
+  selectedPool.value = pool
+  
+  // 直接从代币余额数据中获取余额
+  currentTokenBalance.value = getTokenBalance(pool.token)
+  
+  // 打开模态框
+  isStakeModalOpen.value = true
 }
 
 // 打开取消质押模态框
@@ -325,6 +357,24 @@ const handleReferrerBound = (address) => {
   referrerAddress.value = address
   hasReferrer.value = true
   console.log('Referrer bound:', address)
+}
+
+// 处理质押操作
+const handleStake = async (stakeData) => {
+  try {
+    console.log('Staking:', stakeData)
+    // 实际项目中应该调用智能合约进行质押
+    
+    // 模拟质押成功
+    // 更新余额
+    await updateBalance()
+    
+    // 显示成功提示
+    alert(t('staking.stakeSuccess'))
+  } catch (error) {
+    console.error('Staking failed:', error)
+    alert(t('errors.stakingFailed'))
+  }
 }
 
 // 组件挂载时加载保存的链选择和检查推荐人状态

@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue'
 import { web3Wallet } from '@/utils/web3'
 import { STORAGE_KEYS } from '@/config'
+import { eventBus, EVENTS } from '@/utils/eventBus'
+import { useI18n } from '@/composables/useI18n'
 
 const isConnected = ref(false)
 const address = ref('')
@@ -57,16 +59,26 @@ const updateBalance = async () => {
   }
 }
 
+// 获取i18n
+const { t } = useI18n()
+
 // 切换网络
 const switchNetwork = async (targetChainId) => {
   try {
-    await web3Wallet.switchNetwork(targetChainId)
-    chainId.value = targetChainId
+    // 显示全局loading
+    eventBus.emit(EVENTS.SHOW_LOADING, t('wallet.switchNetwork') + '...')
+    
+    const result = await web3Wallet.switchNetwork(targetChainId)
+    // 使用 web3Wallet 返回的 chainId，确保与钱包实际链 ID 一致
+    chainId.value = result.chainId
     await updateBalance()
     return true
   } catch (error) {
     console.error('Failed to switch network:', error)
     throw error
+  } finally {
+    // 隐藏全局loading
+    eventBus.emit(EVENTS.HIDE_LOADING)
   }
 }
 
@@ -77,7 +89,10 @@ const formatAddress = computed(() => {
 
 // 获取当前网络信息
 const currentNetwork = computed(() => {
-  return web3Wallet.getCurrentNetwork()
+  console.log('Computing currentNetwork with chainId:', chainId.value);
+  const network = web3Wallet.getCurrentNetwork();
+  console.log('Computed network:', network);
+  return network;
 })
 
 // 检查是否支持当前网络

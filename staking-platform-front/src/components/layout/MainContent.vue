@@ -1,8 +1,22 @@
 <template>
   <div>
+    <!-- 质押模态框 -->
+    <StakeModal
+      :is-open="isStakeModalOpen"
+      :pool="selectedPool || {}"
+      :balance="currentTokenBalance"
+      @close="isStakeModalOpen = false"
+      @stake="handleStake"
+    />
+    
     <!-- 仪表板内容 -->
     <div class="fade-in">
       <h1 class="text-2xl font-bold text-primary mb-6">{{ t('dashboard.title') }}</h1>
+      
+      <!-- 代币余额 -->
+      <div class="mb-8">
+        <TokenBalances />
+      </div>
       
       <!-- 统计卡片 -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -112,7 +126,12 @@
             </div>
             
             <div class="flex space-x-3">
-              <button class="btn-primary flex-1">{{ t('staking.stake') }}</button>
+              <button 
+                class="btn-primary flex-1"
+                @click="openStakeModal(pool)"
+              >
+                {{ t('staking.stake') }}
+              </button>
               <button class="btn-secondary flex-1">{{ t('staking.unstake') }}</button>
             </div>
           </div>
@@ -196,16 +215,26 @@
 import { ref, computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { ArrowUpIcon } from '@heroicons/vue/24/solid'
-import { getAllStakingPools, getSupportedChains, TOKEN_CONFIG } from '@/config'
+import { getAllStakingPools, getSupportedChains } from '@/config'
 import { getStakingHistory, getStakingStats } from '@/data/stakingData'
+import { getTokenBalance } from '@/data/tokenBalances'
+import TokenBalances from '@/components/common/TokenBalances.vue'
+import StakeModal from '@/components/modals/StakeModal.vue'
+import { useWallet } from '@/composables/useWallet'
 
 const { t } = useI18n()
+const { updateBalance } = useWallet()
 
 // 获取支持的链
 const supportedChains = getSupportedChains()
 
 // 当前选中的链
 const selectedChain = ref('ethereum')
+
+// 质押模态框相关
+const isStakeModalOpen = ref(false)
+const selectedPool = ref(null)
+const currentTokenBalance = ref('0')
 
 // 获取所有质押池
 const allPools = getAllStakingPools()
@@ -229,6 +258,35 @@ const formatNumber = (num) => {
     return (num / 1000).toFixed(1) + 'K'
   }
   return num.toLocaleString()
+}
+
+// 打开质押模态框
+const openStakeModal = (pool) => {
+  selectedPool.value = pool
+  
+  // 直接从代币余额数据中获取余额
+  currentTokenBalance.value = getTokenBalance(pool.token)
+  
+  // 打开模态框
+  isStakeModalOpen.value = true
+}
+
+// 处理质押操作
+const handleStake = async (stakeData) => {
+  try {
+    console.log('Staking:', stakeData)
+    // 实际项目中应该调用智能合约进行质押
+    
+    // 模拟质押成功
+    // 更新余额
+    await updateBalance()
+    
+    // 显示成功提示
+    alert(t('staking.stakeSuccess'))
+  } catch (error) {
+    console.error('Staking failed:', error)
+    alert(t('errors.stakingFailed'))
+  }
 }
 
 // 图片加载错误处理
