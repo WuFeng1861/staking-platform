@@ -23,11 +23,11 @@ export class NftTransaction {
   @Column({ type: 'decimal', precision: 5, scale: 2 })
   stakingApr: string;
 
-  @Index()
+  @Index('IDX_nft_from_address')
   @Column({ length: 255 })
   fromAddress: string;
 
-  @Index()
+  @Index('IDX_nft_to_address')
   @Column({ length: 255 })
   toAddress: string;
 

@@ -1,50 +1,37 @@
-import { Controller, Post, Body, Get, Query, UseInterceptors } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, ValidationPipe, UsePipes } from '@nestjs/common';
 import { StakingService } from '../services/staking.service';
 import { CreateStakingDto } from '../dto/create-staking.dto';
-import { QueryStakingDto } from '../dto/query-staking.dto';
-import { AdminAuthDto } from '../dto/admin-auth.dto';
-import { QueryStatsDto } from '../dto/query-stats.dto';
-import { TransformInterceptor } from '../../../common/interceptors/transform.interceptor';
 
 @Controller('staking')
-@UseInterceptors(TransformInterceptor)
+@UsePipes(new ValidationPipe({ transform: true }))
 export class StakingController {
   constructor(private readonly stakingService: StakingService) {}
 
   /**
-   * 创建质押记录
-   * @param createStakingDto 创建质押记录DTO
+   * 进行质押
    */
   @Post()
   async createStaking(@Body() createStakingDto: CreateStakingDto) {
-    return this.stakingService.createStaking(createStakingDto);
+    return await this.stakingService.createStaking(createStakingDto);
   }
 
   /**
-   * 查询质押记录（分页）
-   * 可以通过质押地址(stakingAddress)查询特定地址的质押记录
-   * @param queryDto 查询参数，包含minId、pageSize和可选的stakingAddress
+   * 根据地址查询质押记录
    */
-  @Get()
-  async queryStakingRecords(@Query() queryDto: QueryStakingDto) {
-    return this.stakingService.queryStakingRecords(queryDto);
+  @Get('address/:stakingAddress')
+  async getStakingsByAddress(
+    @Param('stakingAddress') stakingAddress: string,
+    @Query('chainId') chainId?: string
+  ) {
+    const chainIdNum = chainId ? parseInt(chainId) : undefined;
+    return await this.stakingService.getStakingsByAddress(stakingAddress, chainIdNum);
   }
 
   /**
-   * 管理员查询所有质押总量
-   * @param adminAuthDto 管理员认证DTO
+   * 根据ID获取质押记录详情
    */
-  @Post('admin/total')
-  async queryTotalStaking(@Body() adminAuthDto: AdminAuthDto) {
-    return this.stakingService.queryTotalStaking(adminAuthDto);
-  }
-
-  /**
-   * 查询统计数据
-   * @param queryDto 查询参数
-   */
-  @Get('stats')
-  async queryStats(@Query() queryDto: QueryStatsDto) {
-    return this.stakingService.queryStats(queryDto);
+  @Get(':id')
+  async getStakingById(@Param('id') id: string) {
+    return await this.stakingService.getStakingById(parseInt(id));
   }
 }

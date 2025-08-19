@@ -1,15 +1,21 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { StakingController } from './controllers/staking.controller';
-import { StakingService } from './services/staking.service';
 import { StakingRecord } from './entities/staking-record.entity';
-import { StakingTotal } from './entities/staking-total.entity';
-import { CacheService } from '../../common/cache/cache.service';
+import { StakingService } from './services/staking.service';
+import { StakingController } from './controllers/staking.controller';
+import { ExchangeModule } from '../exchange/exchange.module';
+import { RewardModule } from '../reward/reward.module';
+import { ReferralModule } from '../referral/referral.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StakingRecord, StakingTotal])],
+  imports: [
+    TypeOrmModule.forFeature([StakingRecord]),
+    ExchangeModule,
+    forwardRef(() => RewardModule),
+    ReferralModule,
+  ],
   controllers: [StakingController],
-  providers: [StakingService, CacheService],
+  providers: [StakingService],
   exports: [StakingService],
 })
 export class StakingModule {}

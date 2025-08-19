@@ -7,7 +7,7 @@
     <div class="relative bg-light-background dark:bg-dark-background rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
       <!-- 标题栏 -->
       <div class="flex justify-between items-center p-4 border-b border-light-border dark:border-dark-border">
-        <h3 class="text-lg font-semibold text-primary">{{ hasReferrer ? t('referral.changeReferrer') : t('referral.bindReferrer') }}</h3>
+        <h3 class="text-lg font-semibold text-primary">{{ t('referral.bindReferrer') }}</h3>
         <button @click="close" class="text-secondary hover:text-primary">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -17,11 +17,6 @@
       
       <!-- 内容区域 -->
       <div class="p-6">
-        <div v-if="hasReferrer" class="mb-4">
-          <div class="text-sm text-secondary mb-1">{{ t('referral.currentReferrer') }}</div>
-          <div class="text-primary font-medium">{{ formatAddress(currentReferrer) }}</div>
-        </div>
-        
         <div class="mb-6">
           <label class="block text-sm text-secondary mb-2">{{ t('referral.enterReferrerAddress') }}</label>
           <input 
@@ -56,7 +51,7 @@
               </svg>
               {{ t('common.processing') }}
             </span>
-            <span v-else>{{ hasReferrer ? t('referral.change') : t('referral.bind') }}</span>
+            <span v-else>{{ t('referral.bind') }}</span>
           </button>
           <button 
             class="btn-secondary flex-1"
@@ -74,16 +69,12 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { REFERRAL_CONFIG, STORAGE_KEYS } from '@/config'
+import { STORAGE_KEYS } from '@/config'
 
 const props = defineProps({
   isOpen: {
     type: Boolean,
     default: false
-  },
-  currentReferrer: {
-    type: String,
-    default: ''
   }
 })
 
@@ -95,7 +86,6 @@ const { t } = useI18n()
 const referrerInput = ref('')
 const error = ref('')
 const isLoading = ref(false)
-const hasReferrer = computed(() => !!props.currentReferrer)
 
 // 监听模态框打开，重置输入
 watch(() => props.isOpen, (newVal) => {
@@ -118,12 +108,6 @@ const isValidAddress = computed(() => {
   
   return isValidFormat && notSelf
 })
-
-// 格式化地址显示
-const formatAddress = (address) => {
-  if (!address) return ''
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
 
 // 绑定推荐人
 const bindReferrer = async () => {

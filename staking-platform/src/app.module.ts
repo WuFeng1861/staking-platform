@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { StakingModule } from './modules/staking/staking.module';
 import { NftModule } from './modules/nft/nft.module';
+import { ReferralModule } from './modules/referral/referral.module';
+import { RewardModule } from './modules/reward/reward.module';
+import { ExchangeModule } from './modules/exchange/exchange.module';
+import { StakingModule } from './modules/staking/staking.module';
 
 @Module({
   imports: [
@@ -19,8 +22,11 @@ import { NftModule } from './modules/nft/nft.module';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: true, // 生产环境中应设置为false
     }),
-    StakingModule,
     NftModule,
+    ReferralModule,
+    RewardModule,
+    ExchangeModule,
+    StakingModule,
   ],
 })
 export class AppModule {}

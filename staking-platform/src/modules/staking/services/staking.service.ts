@@ -1,206 +1,203 @@
-import { Injectable, ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository } from 'typeorm';
+import BigNumber from 'bignumber.js';
 import { StakingRecord } from '../entities/staking-record.entity';
-import { StakingTotal } from '../entities/staking-total.entity';
 import { CreateStakingDto } from '../dto/create-staking.dto';
-import { QueryStakingDto } from '../dto/query-staking.dto';
-import { AdminAuthDto } from '../dto/admin-auth.dto';
-import { QueryStatsDto, TimeRange } from '../dto/query-stats.dto';
-import { CacheService } from '../../../common/cache/cache.service';
-
+import { ExchangeService } from '../../exchange/services/exchange.service';
+import { RewardService } from '../../reward/services/reward.service';
+import { ReferralService } from '../../referral/services/referral.service';
+import { RewardType } from '../../reward/entities/reward-record.entity';
 
 @Injectable()
 export class StakingService {
   constructor(
     @InjectRepository(StakingRecord)
-    private stakingRecordRepository: Repository<StakingRecord>,
-    @InjectRepository(StakingTotal)
-    private stakingTotalRepository: Repository<StakingTotal>,
-    private cacheService: CacheService,
+    private readonly stakingRecordRepository: Repository<StakingRecord>,
+    private readonly exchangeService: ExchangeService,
+    @Inject(forwardRef(() => RewardService))
+    private readonly rewardService: RewardService,
+    private readonly referralService: ReferralService,
   ) {}
 
   /**
-   * 创建质押记录
+   * 进行质押
    */
-  async createStaking(createStakingDto: CreateStakingDto): Promise<StakingRecord> {
-    // 检查交易hash是否已存在
-    const existingRecord = await this.stakingRecordRepository.findOne({
-      where: { transactionHash: createStakingDto.transactionHash },
+  async createStaking(createStakingDto: CreateStakingDto): Promise<{ success: boolean; message: string; data?: any }> {
+    // 检查质押哈希是否已存在
+    const existingStaking = await this.stakingRecordRepository.findOne({
+      where: { stakingHash: createStakingDto.stakingHash }
     });
 
-    if (existingRecord) {
-      throw new ConflictException('该交易hash已存在');
+    if (existingStaking) {
+      throw new ConflictException('该质押交易哈希已存在');
     }
 
-    // 创建新的质押记录
-    const newRecord = this.stakingRecordRepository.create({
-      ...createStakingDto,
-      stakingStartTime: new Date(createStakingDto.stakingStartTime),
-    });
+    try {
+      // 1. 创建质押记录
+      const stakingRecord = this.stakingRecordRepository.create({
+        ...createStakingDto,
+        stakingStartTime: new Date(createStakingDto.stakingStartTime),
+      });
 
-    // 保存质押记录
-    const savedRecord = await this.stakingRecordRepository.save(newRecord);
+      // 2. 计算质押金额对应的USDT价值
+      let usdtValue = '0';
+      try {
+        if (createStakingDto.stakingCoin.toUpperCase() === 'USDT') {
+          usdtValue = createStakingDto.stakingAmount;
+        } else {
+          // 获取质押币种到USDT的兑换比例
+          const exchangeRate = await this.exchangeService.getExchangeRate(
+            createStakingDto.stakingCoin.toUpperCase(),
+            'USDT'
+          );
+          const stakingAmountBN = new BigNumber(createStakingDto.stakingAmount);
+          const exchangeRateBN = new BigNumber(exchangeRate.exchangeRate);
+          usdtValue = stakingAmountBN.multipliedBy(exchangeRateBN).toString();
+        }
+      } catch (error) {
+        // 如果没有找到兑换比例，默认为0
+        console.warn(`未找到 ${createStakingDto.stakingCoin} 到 USDT 的兑换比例`);
+      }
 
-    // 更新质押总量
-    await this.updateStakingTotal(
-      createStakingDto.stakingChain,
-      createStakingDto.stakingCoin,
-      createStakingDto.stakingAmount,
-    );
+      // 3. 计算10%U价值的NexaFi奖励
+      const usdtValueBN = new BigNumber(usdtValue);
+      const rewardUsdtAmount = usdtValueBN.multipliedBy(0.1).toString();
+      let nexafiRewardAmount = '0';
+      
+      try {
+        const nexafiExchange = await this.exchangeService.calculateExchange('USDT', 'NexaFi', rewardUsdtAmount);
+        nexafiRewardAmount = nexafiExchange.toAmount;
+        stakingRecord.nexafiRewardAmount = nexafiRewardAmount;
+      } catch (error) {
+        console.warn('计算NexaFi奖励失败:', error.message);
+      }
 
-    // 更新缓存中的统计数据
-    this.updateStatsCache(savedRecord);
+      // 4. 保存质押记录
+      const savedStaking = await this.stakingRecordRepository.save(stakingRecord);
 
-    return savedRecord;
+      // 5. 创建质押奖励记录
+      if (parseFloat(nexafiRewardAmount) > 0) {
+        try {
+          await this.rewardService.createRewardRecord({
+            chainId: createStakingDto.chainId,
+            claimHash: createStakingDto.stakingHash,
+            rewardToken: 'NexaFi',
+            rewardTime: createStakingDto.stakingStartTime,
+            stakingApy: createStakingDto.stakingApy,
+            rewardAmount: nexafiRewardAmount,
+            claimAddress: createStakingDto.stakingAddress,
+            rewardType: RewardType.STAKING
+          });
+        } catch (error) {
+          console.warn('创建质押奖励记录失败:', error.message);
+        }
+      }
+
+      // 6. 处理推荐人奖励
+      await this.handleReferralReward(createStakingDto, usdtValue, savedStaking);
+
+      return {
+        success: true,
+        message: '质押成功',
+        data: {
+          stakingRecord: savedStaking,
+          nexafiReward: nexafiRewardAmount,
+          usdtValue: usdtValue
+        }
+      };
+
+    } catch (error) {
+      console.error('质押处理失败:', error);
+      throw error;
+    }
   }
 
   /**
-   * 更新质押总量
+   * 处理推荐人奖励
    */
-  private async updateStakingTotal(
-    stakingChain: string,
-    stakingCoin: string,
-    amount: string,
+  private async handleReferralReward(
+    createStakingDto: CreateStakingDto,
+    usdtValue: string,
+    stakingRecord: StakingRecord
   ): Promise<void> {
-    // 查找现有的总量记录
-    let totalRecord = await this.stakingTotalRepository.findOne({
-      where: {
-        stakingChain,
-        stakingCoin,
-      },
-    });
+    try {
+      // 检查质押金额是否超过100U
+      const usdtValueBN = new BigNumber(usdtValue);
+      const minThresholdBN = new BigNumber(100);
+      
+      if (usdtValueBN.isLessThan(minThresholdBN)) {
+        return;
+      }
 
-    if (totalRecord) {
-      // 更新现有记录
-      const currentAmount = parseFloat(totalRecord.totalAmount);
-      const addAmount = parseFloat(amount);
-      totalRecord.totalAmount = (currentAmount + addAmount).toString();
-      await this.stakingTotalRepository.save(totalRecord);
-    } else {
-      // 创建新记录
-      totalRecord = this.stakingTotalRepository.create({
-        stakingChain,
-        stakingCoin,
-        totalAmount: amount,
+      // 检查是否有推荐人
+      const referral = await this.referralService.getReferralByAddress(
+        createStakingDto.stakingAddress,
+        createStakingDto.chainId
+      );
+
+      if (!referral) {
+        return;
+      }
+
+      // 检查是否是该地址在当前链的第一次质押（通过检查是否已发放过推荐奖励）
+      const hasReferralReward = await this.stakingRecordRepository.findOne({
+        where: {
+          stakingAddress: createStakingDto.stakingAddress,
+          chainId: createStakingDto.chainId,
+          referralRewardGiven: true
+        }
       });
-      await this.stakingTotalRepository.save(totalRecord);
+
+      if (hasReferralReward) {
+        return; // 已经发放过推荐奖励，不是第一次质押
+      }
+
+      // 计算20U对应的NexaFi奖励
+      const referralRewardUsdt = '20';
+      const nexafiExchange = await this.exchangeService.calculateExchange('USDT', 'NexaFi', referralRewardUsdt);
+      const referralNexafiAmount = nexafiExchange.toAmount;
+
+      // 创建推荐人奖励记录
+      await this.rewardService.createRewardRecord({
+        chainId: createStakingDto.chainId,
+        claimHash: createStakingDto.stakingHash,
+        rewardToken: 'NexaFi',
+        rewardTime: createStakingDto.stakingStartTime,
+        stakingApy: createStakingDto.stakingApy,
+        rewardAmount: referralNexafiAmount,
+        claimAddress: referral.referrerAddress,
+        rewardType: RewardType.REFERRAL
+      });
+
+      // 标记已发放推荐奖励
+      stakingRecord.referralRewardGiven = true;
+      await this.stakingRecordRepository.save(stakingRecord);
+
+    } catch (error) {
+      console.warn('处理推荐人奖励失败:', error.message);
     }
   }
 
   /**
-   * 查询质押记录（分页）
+   * 根据地址查询质押记录
    */
-  async queryStakingRecords(queryDto: QueryStakingDto): Promise<StakingRecord[]> {
-    const { minId, pageSize, stakingAddress } = queryDto;
-    
-    // 构建查询条件
-    let whereCondition: any = {};
-    
-    whereCondition.stakingAddress = stakingAddress;
-    
-    // 如果minId为0，则获取最新的记录
-    if (minId === 0) {
-      return this.stakingRecordRepository.find({
-        where: whereCondition,
-        order: { id: 'DESC' },
-        take: pageSize,
-      });
+  async getStakingsByAddress(stakingAddress: string, chainId?: number): Promise<StakingRecord[]> {
+    const where: any = { stakingAddress };
+    if (chainId) {
+      where.chainId = chainId;
     }
-    
-    // 否则获取ID小于minId的记录
-    whereCondition.id = LessThan(minId);
-    return this.stakingRecordRepository.find({
-      where: whereCondition,
-      order: { id: 'DESC' },
-      take: pageSize,
+
+    return await this.stakingRecordRepository.find({
+      where,
+      order: { createdAt: 'DESC' }
     });
   }
 
   /**
-   * 管理员查询所有质押总量
+   * 根据ID获取质押记录
    */
-  async queryTotalStaking(adminAuthDto: AdminAuthDto): Promise<StakingTotal[]> {
-    // 验证管理员密码
-    this.validateAdminPassword(adminAuthDto.password);
-    
-    // 查询所有质押总量记录
-    return this.stakingTotalRepository.find();
-  }
-
-  /**
-   * 验证管理员密码
-   */
-  private validateAdminPassword(password: string): void {
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (password !== adminPassword) {
-      throw new UnauthorizedException('管理员密码错误');
-    }
-  }
-
-  /**
-   * 更新统计缓存
-   */
-  private updateStatsCache(record: StakingRecord): void {
-    const now = Date.now();
-    const hourInMs = 60 * 60 * 1000;
-    const dayInMs = 24 * hourInMs;
-    const weekInMs = 7 * dayInMs;
-
-    // 更新各时间段的交易笔数统计
-    this.updateTransactionCountCache(TimeRange.HOUR_1, now - hourInMs);
-    this.updateTransactionCountCache(TimeRange.DAY_1, now - dayInMs);
-    this.updateTransactionCountCache(TimeRange.DAY_3, now - 3 * dayInMs);
-    this.updateTransactionCountCache(TimeRange.WEEK_1, now - weekInMs);
-
-    // 更新各时间段的币种数量统计
-    this.updateCoinAmountCache(record.stakingCoin, TimeRange.HOUR_1, now - hourInMs, record.stakingAmount);
-    this.updateCoinAmountCache(record.stakingCoin, TimeRange.DAY_1, now - dayInMs, record.stakingAmount);
-    this.updateCoinAmountCache(record.stakingCoin, TimeRange.DAY_3, now - 3 * dayInMs, record.stakingAmount);
-    this.updateCoinAmountCache(record.stakingCoin, TimeRange.WEEK_1, now - weekInMs, record.stakingAmount);
-  }
-
-  /**
-   * 更新交易笔数缓存
-   */
-  private updateTransactionCountCache(timeRange: TimeRange, startTime: number): void {
-    const cacheKey = `transaction_count:${timeRange}`;
-    const count = this.cacheService.get<number>(cacheKey) || 0;
-    this.cacheService.set(cacheKey, count + 1);
-  }
-
-  /**
-   * 更新币种数量缓存
-   */
-  private updateCoinAmountCache(coin: string, timeRange: TimeRange, startTime: number, amount: string): void {
-    const cacheKey = `coin_amount:${timeRange}:${coin}`;
-    const currentAmount = this.cacheService.get<number>(cacheKey) || 0;
-    this.cacheService.set(cacheKey, currentAmount + parseFloat(amount));
-  }
-
-  /**
-   * 查询统计数据
-   */
-  async queryStats(queryDto: QueryStatsDto): Promise<any> {
-    const { timeRange } = queryDto;
-    
-    // 获取交易笔数
-    const transactionCount = this.cacheService.get<number>(`transaction_count:${timeRange}`) || 0;
-    
-    // 获取所有币种的缓存键
-    const coinKeys = this.cacheService.keys().filter(key => key.startsWith(`coin_amount:${timeRange}`));
-    
-    // 构建币种数量统计
-    const coinAmounts = {};
-    for (const key of coinKeys) {
-      const coin = key.split(':')[2]; // 格式：coin_amount:timeRange:coin
-      coinAmounts[coin] = this.cacheService.get<number>(key) || 0;
-    }
-    
-    return {
-      timeRange,
-      transactionCount,
-      coinAmounts,
-    };
+  async getStakingById(id: number): Promise<StakingRecord> {
+    return await this.stakingRecordRepository.findOne({ where: { id } });
   }
 }

@@ -156,7 +156,7 @@
           class="btn-secondary flex items-center space-x-2 text-sm"
           @click="openBindReferrerModal"
         >
-          <span>{{ hasReferrer ? t('referral.changeReferrer') : t('referral.bindReferrer') }}</span>
+          <span>{{ t('referral.bindReferrer') }}</span>
         </button>
       </div>
       
