@@ -126,6 +126,13 @@ export class ReferralService {
   }
 
   /**
+   * 更新推荐关系
+   */
+  async updateReferral(referral: Referral): Promise<Referral> {
+    return await this.referralRepository.save(referral);
+  }
+
+  /**
    * 检查是否会形成循环绑定
    */
   private async checkCircularBinding(currentAddress: string, referrerAddress: string, chainId: string): Promise<boolean> {

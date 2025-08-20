@@ -4,7 +4,8 @@ export enum RewardType {
   STAKING = 'staking',
   REFERRAL = 'referral',
   BONUS = 'bonus',
-  AIRDROP = 'airdrop'
+  AIRDROP = 'airdrop',
+  INTEREST = 'interest', // 利息领取
 }
 
 @Entity('reward_records')
@@ -19,6 +20,9 @@ export class RewardRecord {
 
   @Column({ name: 'chain_id', comment: '链ID' })
   chainId: number;
+
+  @Column({ name: 'staking_record_id', nullable: true, comment: '关联的质押记录ID' })
+  stakingRecordId: number;
 
   @Column({ name: 'claim_hash', unique: true, comment: '领取奖励交易哈希' })
   claimHash: string;

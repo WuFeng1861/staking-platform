@@ -55,10 +55,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useTheme } from '@/composables/useTheme'
 import { useI18n } from '@/composables/useI18n'
 import { useWallet } from '@/composables/useWallet'
+import { useContracts } from '@/composables/useContracts'
 import { STORAGE_KEYS } from '@/config'
 
 import Sidebar from '@/components/layout/Sidebar.vue'
@@ -72,18 +73,25 @@ import GlobalLoading from '@/components/common/GlobalLoading.vue'
 const { loadTheme } = useTheme()
 const { loadLanguage } = useI18n()
 const { initWallet, setupWalletListeners } = useWallet()
+const { 
+  hasReferrer, 
+  referrerAddress, 
+  checkReferrerBinding, 
+} = useContracts()
 
-
-// 推荐人相关
-const hasReferrer = ref(false)
-const referrerAddress = ref('')
+// 绑定推荐人模态框状态
 const isBindReferrerModalOpen = ref(false)
 
 // 处理绑定上级完成
-const handleReferrerBound = (address) => {
-  referrerAddress.value = address
-  hasReferrer.value = true
+const handleReferrerBound = async (address) => {
+  // 重新检查绑定状态，确保状态同步
+  await checkReferrerBinding()
   console.log('Referrer bound:', address)
+  
+  // 保存到本地存储（可选，如果您仍然想保留这个功能）
+  if (hasReferrer.value && referrerAddress.value) {
+    localStorage.setItem(STORAGE_KEYS.REFERRER_ADDRESS, referrerAddress.value)
+  }
 }
 
 onMounted(async () => {
@@ -99,16 +107,14 @@ onMounted(async () => {
   // 设置钱包事件监听
   setupWalletListeners()
   
-  // 检查是否已绑定推荐人
-  const savedReferrer = localStorage.getItem(STORAGE_KEYS.REFERRER_ADDRESS)
-  if (savedReferrer) {
-    hasReferrer.value = true
-    referrerAddress.value = savedReferrer
-  }
-  
   // 监听打开绑定上级模态框事件
   document.addEventListener('open-bind-referrer-modal', () => {
-    isBindReferrerModalOpen.value = true
+    // 只有在未绑定推荐人时才显示模态框
+    if (!hasReferrer.value) {
+      isBindReferrerModalOpen.value = true
+    } else {
+      console.log('已绑定推荐人，无需再次绑定')
+    }
   })
 })
 

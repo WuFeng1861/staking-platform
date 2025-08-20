@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import BigNumber from 'bignumber.js';
 import { StakingRecord } from '../entities/staking-record.entity';
 import { CreateStakingDto } from '../dto/create-staking.dto';
+import { WithdrawStakingDto } from '../dto/withdraw-staking.dto';
 import { ExchangeService } from '../../exchange/services/exchange.service';
 import { RewardService } from '../../reward/services/reward.service';
 import { ReferralService } from '../../referral/services/referral.service';
@@ -81,6 +82,7 @@ export class StakingService {
         try {
           await this.rewardService.createRewardRecord({
             chainId: createStakingDto.chainId,
+            stakingRecordId: savedStaking.id,
             claimHash: createStakingDto.stakingHash,
             rewardToken: 'NexaFi',
             rewardTime: createStakingDto.stakingStartTime,
@@ -122,13 +124,6 @@ export class StakingService {
     stakingRecord: StakingRecord
   ): Promise<void> {
     try {
-      // 检查质押金额是否超过100U
-      const usdtValueBN = new BigNumber(usdtValue);
-      const minThresholdBN = new BigNumber(100);
-      
-      if (usdtValueBN.isLessThan(minThresholdBN)) {
-        return;
-      }
 
       // 检查是否有推荐人
       const referral = await this.referralService.getReferralByAddress(
@@ -140,17 +135,21 @@ export class StakingService {
         return;
       }
 
-      // 检查是否是该地址在当前链的第一次质押（通过检查是否已发放过推荐奖励）
-      const hasReferralReward = await this.stakingRecordRepository.findOne({
-        where: {
-          stakingAddress: createStakingDto.stakingAddress,
-          chainId: createStakingDto.chainId,
-          referralRewardGiven: true
-        }
-      });
+      // 检查是否是该地址在当前链的第一次质押（通过检查推荐关系中是否已带来过推荐奖励）
+      if (referral.hasBroughtReferralReward) {
+        return; // 已经给上级带来过推荐奖励，不再发放
+      }
 
-      if (hasReferralReward) {
-        return; // 已经发放过推荐奖励，不是第一次质押
+      // 更新推荐关系，标记该用户已给上级带来过推荐奖励
+      referral.hasBroughtReferralReward = true;
+      await this.referralService.updateReferral(referral);
+
+      // 检查质押金额是否超过100U
+      const usdtValueBN = new BigNumber(usdtValue);
+      const minThresholdBN = new BigNumber(100);
+      
+      if (usdtValueBN.isLessThan(minThresholdBN)) {
+        return;
       }
 
       // 计算20U对应的NexaFi奖励
@@ -161,6 +160,7 @@ export class StakingService {
       // 创建推荐人奖励记录
       await this.rewardService.createRewardRecord({
         chainId: createStakingDto.chainId,
+        stakingRecordId: stakingRecord.id,
         claimHash: createStakingDto.stakingHash,
         rewardToken: 'NexaFi',
         rewardTime: createStakingDto.stakingStartTime,
@@ -199,5 +199,86 @@ export class StakingService {
    */
   async getStakingById(id: number): Promise<StakingRecord> {
     return await this.stakingRecordRepository.findOne({ where: { id } });
+  }
+
+  /**
+   * 取回质押：
+   * TODO: 取回质押还会将剩下的利息领取这个步骤丢掉了，因为可以暂时丢掉，后面考虑是否添加
+   */
+  async withdrawStaking(withdrawStakingDto: WithdrawStakingDto): Promise<{ success: boolean; message: string; data?: any }> {
+    try {
+      // 1. 查找质押记录
+      const stakingRecord = await this.stakingRecordRepository.findOne({
+        where: { 
+          id: withdrawStakingDto.stakingRecordId,
+          stakingAddress: withdrawStakingDto.stakingAddress,
+          chainId: withdrawStakingDto.chainId
+        }
+      });
+
+      if (!stakingRecord) {
+        return {
+          success: false,
+          message: '质押记录不存在'
+        };
+      }
+
+      // 2. 检查是否已经取回
+      if (stakingRecord.isWithdrawn) {
+        return {
+          success: false,
+          message: '该质押已经取回'
+        };
+      }
+
+      // 3. 检查取回哈希是否已存在
+      const existingWithdraw = await this.stakingRecordRepository.findOne({
+        where: { withdrawHash: withdrawStakingDto.withdrawHash }
+      });
+
+      if (existingWithdraw) {
+        return {
+          success: false,
+          message: '该取回交易哈希已存在'
+        };
+      }
+
+      // 4. 检查锁仓时间是否已到
+      const stakingStartTime = new Date(withdrawStakingDto.stakingStartTime);
+      const withdrawTime = new Date(withdrawStakingDto.withdrawTime);
+      const lockDurationMs = withdrawStakingDto.stakingLockDuration * 1000; // 转换为毫秒
+      const unlockTime = new Date(stakingStartTime.getTime() + lockDurationMs);
+
+      if (withdrawTime < unlockTime) {
+        return {
+          success: false,
+          message: `质押锁仓期未到，解锁时间为: ${unlockTime.toISOString()}`
+        };
+      }
+
+      // 5. 更新质押记录
+      stakingRecord.isWithdrawn = true;
+      stakingRecord.withdrawTime = new Date(withdrawStakingDto.withdrawTime);
+      stakingRecord.withdrawHash = withdrawStakingDto.withdrawHash;
+
+      const updatedRecord = await this.stakingRecordRepository.save(stakingRecord);
+
+      return {
+        success: true,
+        message: '取回质押成功',
+        data: {
+          stakingRecord: updatedRecord,
+          withdrawAmount: stakingRecord.stakingAmount,
+          withdrawCoin: withdrawStakingDto.withdrawCoin
+        }
+      };
+
+    } catch (error) {
+      console.error('取回质押失败:', error);
+      return {
+        success: false,
+        message: '取回质押失败: ' + error.message
+      };
+    }
   }
 }

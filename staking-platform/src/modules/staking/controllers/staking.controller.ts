@@ -1,6 +1,7 @@
-import { Controller, Post, Get, Body, Param, Query, ValidationPipe, UsePipes } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, ValidationPipe, UsePipes, Put } from '@nestjs/common';
 import { StakingService } from '../services/staking.service';
 import { CreateStakingDto } from '../dto/create-staking.dto';
+import { WithdrawStakingDto } from '../dto/withdraw-staking.dto';
 
 @Controller('staking')
 @UsePipes(new ValidationPipe({ transform: true }))
@@ -33,5 +34,13 @@ export class StakingController {
   @Get(':id')
   async getStakingById(@Param('id') id: string) {
     return await this.stakingService.getStakingById(parseInt(id));
+  }
+
+  /**
+   * 取回质押
+   */
+  @Put('withdraw')
+  async withdrawStaking(@Body() withdrawStakingDto: WithdrawStakingDto) {
+    return await this.stakingService.withdrawStaking(withdrawStakingDto);
   }
 }

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, IsEnum, IsDateString, IsDecimal } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsEnum, IsDateString, IsDecimal, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { RewardType } from '../entities/reward-record.entity';
 
@@ -7,6 +7,11 @@ export class CreateRewardRecordDto {
   @IsNumber({}, { message: '链ID必须是数字' })
   @Transform(({ value }) => parseInt(value))
   chainId: number;
+
+  @IsOptional()
+  @IsNumber({}, { message: '质押记录ID必须是数字' })
+  @Transform(({ value }) => value ? parseInt(value) : undefined)
+  stakingRecordId?: number;
 
   @IsNotEmpty({ message: '领取奖励交易哈希不能为空' })
   @IsString({ message: '领取奖励交易哈希必须是字符串' })

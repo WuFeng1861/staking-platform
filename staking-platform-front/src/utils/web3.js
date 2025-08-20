@@ -8,6 +8,7 @@ class Web3Wallet {
     this.address = null
     this.chainId = null
     this.isConnected = false
+    this.contractMap = {}
   }
 
   // 检查是否安装了钱包
@@ -57,6 +58,44 @@ class Web3Wallet {
       throw error
     }
   }
+
+  // 创建合约实例
+  createContract(contractName, contractAddress, abi) {
+    try {
+      if (!this.provider) {
+        throw new Error('Wallet not connected')
+      }
+      
+      const contract = new ethers.Contract(contractAddress, abi, this.signer)
+      this.contractMap[contractName] = contract
+      return contract;
+    } catch (error) {
+      console.error('Failed to create contract instance:', error)
+      throw error
+    }
+  }
+
+  // 执行合约方法
+
+  async callContractMethod(contractName, methodName, ...args) {
+    try {
+      if (!this.provider) {
+        throw new Error('Wallet not connected')
+      }
+      
+      const contract = this.contractMap[contractName]
+      if (!contract) {
+        throw new Error(`Contract "${contractName}" not found`)
+      }
+      
+      const result = await contract[methodName](...args)
+      return result
+    } catch (error) {
+      console.error('Failed to call contract method:', error)
+      throw error
+    }
+  }
+      
 
   // 断开连接
   disconnect() {

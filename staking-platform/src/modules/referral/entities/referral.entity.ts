@@ -23,6 +23,9 @@ export class Referral {
   @Column({ unique: true })
   transactionHash: string; // 交易hash，唯一
 
+  @Column({ name: 'has_brought_referral_reward', type: 'tinyint', width: 1, default: 0, comment: '是否给上级带来过推荐奖励' })
+  hasBroughtReferralReward: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

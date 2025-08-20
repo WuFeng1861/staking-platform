@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { web3Wallet } from '@/utils/web3'
 import { STORAGE_KEYS } from '@/config'
 import { eventBus, EVENTS } from '@/utils/eventBus'
@@ -9,6 +9,8 @@ const address = ref('')
 const chainId = ref(null)
 const balance = ref('0')
 const isConnecting = ref(false)
+const provider = ref(null)
+const signer = ref(null)
 
 // 连接钱包
 const connectWallet = async () => {
@@ -22,6 +24,10 @@ const connectWallet = async () => {
     
     // 保存到本地存储
     localStorage.setItem(STORAGE_KEYS.WALLET_ADDRESS, result.address)
+    
+    // 设置provider
+    provider.value = web3Wallet.provider
+    signer.value = web3Wallet.signer
     
     // 获取余额
     await updateBalance()
@@ -42,6 +48,8 @@ const disconnectWallet = () => {
   address.value = ''
   chainId.value = null
   balance.value = '0'
+  provider.value = null
+  signer.value = null
   
   // 清除本地存储
   localStorage.removeItem(STORAGE_KEYS.WALLET_ADDRESS)
@@ -71,6 +79,11 @@ const switchNetwork = async (targetChainId) => {
     const result = await web3Wallet.switchNetwork(targetChainId)
     // 使用 web3Wallet 返回的 chainId，确保与钱包实际链 ID 一致
     chainId.value = result.chainId
+    
+    // 更新provider
+    provider.value = web3Wallet.provider
+    signer.value = web3Wallet.signer
+    
     await updateBalance()
     return true
   } catch (error) {
@@ -110,6 +123,7 @@ const formattedBalance = computed(() => {
 
 // 初始化钱包连接（页面加载时检查）
 const initWallet = async () => {
+  console.log('Initializing wallet', 'useWallet')
   try {
     const savedAddress = localStorage.getItem(STORAGE_KEYS.WALLET_ADDRESS)
     if (savedAddress && web3Wallet.isWalletInstalled()) {
@@ -132,15 +146,21 @@ const setupWalletListeners = () => {
       if (accounts.length === 0) {
         disconnectWallet()
       } else if (accounts[0] !== address.value) {
-        address.value = accounts[0]
-        updateBalance()
+        disconnectWallet();
+        nextTick(() => {
+          address.value = accounts[0]
+          connectWallet()
+        })
       }
     })
 
     // 监听网络变化
     window.ethereum.on('chainChanged', (newChainId) => {
-      chainId.value = parseInt(newChainId, 16)
-      updateBalance()
+      disconnectWallet();
+        nextTick(() => {
+          chainId.value = parseInt(newChainId, 16)
+          connectWallet()
+        })
     })
   }
 }
@@ -153,6 +173,8 @@ export const useWallet = () => {
     chainId,
     balance,
     isConnecting,
+    provider,
+    signer,
     
     // 计算属性
     formatAddress,

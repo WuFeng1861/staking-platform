@@ -40,6 +40,15 @@ export class StakingRecord {
   @Column({ name: 'referral_reward_given', type: 'tinyint', width: 1, default: 0, comment: '是否已发放推荐奖励' })
   referralRewardGiven: boolean;
 
+  @Column({ name: 'is_withdrawn', type: 'tinyint', width: 1, default: 0, comment: '是否已取回' })
+  isWithdrawn: boolean;
+
+  @Column({ name: 'withdraw_time', type: 'timestamp', nullable: true, comment: '取回时间' })
+  withdrawTime: Date;
+
+  @Column({ name: 'withdraw_hash', nullable: true, comment: '取回交易哈希' })
+  withdrawHash: string;
+
   @CreateDateColumn({ name: 'created_at', comment: '创建时间' })
   createdAt: Date;
 
