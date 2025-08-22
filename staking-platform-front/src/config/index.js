@@ -18,6 +18,7 @@ export const STORAGE_KEYS = {
   WALLET_ADDRESS: 'nexafi_wallet_address',
   CONNECTED_WALLET: 'nexafi_connected_wallet',
   REFERRER_ADDRESS: 'nexafi_referrer_address',
+  REFERRERS_MAP: 'nexafi_referrers_map',
   SELECTED_CHAIN: 'nexafi_selected_chain'
 }
 

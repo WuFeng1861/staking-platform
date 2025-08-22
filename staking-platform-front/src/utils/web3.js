@@ -95,6 +95,39 @@ class Web3Wallet {
       throw error
     }
   }
+  
+  // 执行合约方法并返回交易哈希
+  async callContractMethodWithTx(contractName, methodName, ...args) {
+    try {
+      if (!this.provider) {
+        throw new Error('Wallet not connected')
+      }
+      
+      const contract = this.contractMap[contractName]
+      if (!contract) {
+        throw new Error(`Contract "${contractName}" not found`)
+      }
+      
+      // 发送交易
+      const tx = await contract[methodName](...args)
+      
+      // 等待交易被确认
+      const receipt = await tx.wait()
+      
+      return {
+        success: true,
+        hash: receipt.hash || tx.hash,
+        receipt: receipt,
+        transaction: tx
+      }
+    } catch (error) {
+      console.error('Failed to call contract method with transaction:', error)
+      return {
+        success: false,
+        error: error.message || '交易失败'
+      }
+    }
+  }
       
 
   // 断开连接

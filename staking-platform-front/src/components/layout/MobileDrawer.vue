@@ -70,9 +70,10 @@
           <button 
             class="btn-outline-secondary w-full flex items-center justify-center text-sm"
             @click="openBindReferrerModal"
+            v-if="!hasReferrer"
           >
             <UserPlusIcon class="w-4 h-4 mr-2" />
-            {{ hasReferrer ? t('referral.changeReferrer') : t('referral.bindReferrer') }}
+            {{t('referral.bindReferrer')}}
           </button>
           
           <!-- 复制成功提示 -->
@@ -139,6 +140,7 @@ const {
   isConnected, 
   connectWallet, 
   formatAddress, 
+  address,
   formattedBalance,
   currentNetwork
 } = useWallet()
@@ -164,6 +166,31 @@ const showCopiedMessage = ref(false)
 const hasReferrer = ref(false)
 const referrerAddress = ref('')
 
+// 获取当前用户的推荐人信息
+const checkReferrerStatus = () => {
+  if (!isConnected.value || !address.value) return;
+  
+  // 获取存储的推荐人映射
+  const storedReferrers = localStorage.getItem(STORAGE_KEYS.REFERRERS_MAP);
+  if (storedReferrers) {
+    try {
+      const referrersMap = JSON.parse(storedReferrers);
+      const userAddress = address.value.toLowerCase();
+      
+      // 检查当前用户是否有推荐人
+      if (referrersMap[userAddress]) {
+        hasReferrer.value = true;
+        referrerAddress.value = referrersMap[userAddress];
+        return;
+      }
+      hasReferrer.value = false;
+      referrerAddress.value = '';
+    } catch (error) {
+      console.error('Error parsing referrers map:', error);
+    }
+  }
+}
+
 // 打开抽屉
 const openDrawer = () => {
   isOpen.value = true
@@ -183,7 +210,7 @@ const toggleLanguage = () => {
 
 // 复制邀请链接
 const copyReferralLink = () => {
-  const referralLink = `https://nexafi.com/ref/${isConnected.value ? formatAddress.value : 'join'}`
+  const referralLink = `https://nexafi.com/ref/${isConnected.value ? address.value : 'join'}`
   navigator.clipboard.writeText(referralLink)
   showCopiedMessage.value = true
   setTimeout(() => {
@@ -204,11 +231,14 @@ onMounted(() => {
   document.addEventListener('toggle-drawer', toggleDrawer)
   
   // 检查是否已绑定推荐人
-  const savedReferrer = localStorage.getItem(STORAGE_KEYS.REFERRER_ADDRESS)
-  if (savedReferrer) {
-    hasReferrer.value = true
-    referrerAddress.value = savedReferrer
-  }
+  checkReferrerStatus();
+  
+  // 监听钱包连接状态变化
+  window.addEventListener('wallet-connected', checkReferrerStatus);
+  window.addEventListener('wallet-disconnected', () => {
+    hasReferrer.value = false;
+    referrerAddress.value = '';
+  });
 })
 
 onUnmounted(() => {

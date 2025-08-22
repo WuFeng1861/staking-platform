@@ -3,6 +3,7 @@ import stakingContractAbi from '../assets/stakingContractAbi';
 import nexaFiContractAbi from '../assets/NexaFiContractAbi';
 import { getContractAddressesByChainId } from '../config/contracts';
 import web3Wallet from './web3';
+import { STORAGE_KEYS } from '@/config'
 
 /**
  * 合约交互工具类
@@ -93,6 +94,58 @@ class ContractInteractions {
   }
 
   /**
+   * 从本地存储中获取推荐人信息
+   * @param {string} userAddress - 用户地址
+   * @returns {string|null} 推荐人地址，如果未绑定则返回null
+   */
+  getReferrerFromStorage(userAddress) {
+    try {
+      if (!userAddress) return null;
+      
+      // 获取存储的推荐人映射
+      const storedReferrers = localStorage.getItem(STORAGE_KEYS.REFERRERS_MAP);
+      if (!storedReferrers) return null;
+      
+      const referrersMap = JSON.parse(storedReferrers);
+      return referrersMap[userAddress.toLowerCase()] || null;
+    } catch (error) {
+      console.error('Error getting referrer from storage:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * 保存推荐人信息到本地存储
+   * @param {string} userAddress - 用户地址
+   * @param {string} referrerAddress - 推荐人地址
+   * @returns {boolean} 是否保存成功
+   */
+  saveReferrerToStorage(userAddress, referrerAddress) {
+    try {
+      if (!userAddress || !referrerAddress) return false;
+      
+      // 获取现有的推荐人映射关系
+      let referrersMap = {};
+      const storedReferrers = localStorage.getItem(STORAGE_KEYS.REFERRERS_MAP);
+      
+      if (storedReferrers) {
+        referrersMap = JSON.parse(storedReferrers);
+      }
+      
+      // 更新当前用户的推荐人
+      referrersMap[userAddress.toLowerCase()] = referrerAddress.toLowerCase();
+      
+      // 保存回本地存储
+      localStorage.setItem(STORAGE_KEYS.REFERRERS_MAP, JSON.stringify(referrersMap));
+      
+      return true;
+    } catch (error) {
+      console.error('Error saving referrer to storage:', error);
+      return false;
+    }
+  }
+
+  /**
    * 检查用户是否已经绑定了上级推荐人
    * @param {string} userAddress - 用户地址，如果不提供则使用当前连接的钱包地址
    * @returns {Promise<Object>} 包含是否绑定及推荐人地址的对象
@@ -111,13 +164,20 @@ class ContractInteractions {
       if (!ethers.isAddress(userAddress)) {
         throw new Error('Invalid user address');
       }
+      
       console.log("Contract Instance:", this.stakingContract);
       console.log("User Address:", userAddress); 
+      
       // 调用合约的referrers映射查询用户的推荐人
       const referrerAddress = await web3Wallet.callContractMethod('stakingContract', "referrers", userAddress);
       
       // 检查返回的地址是否为零地址（未绑定）
       const isZeroAddress = referrerAddress === '0x0000000000000000000000000000000000000000';
+      
+      // 如果链上有绑定关系，同步到本地存储
+      if (!isZeroAddress) {
+        this.saveReferrerToStorage(userAddress, referrerAddress);
+      }
       
       console.log(`User ${userAddress} is bound to referrer ${referrerAddress}`);
       return {
@@ -126,6 +186,17 @@ class ContractInteractions {
       };
     } catch (error) {
       console.error('Error checking referrer binding:', error);
+      
+      // 如果链上查询失败，尝试从本地存储获取
+      const localReferrer = this.getReferrerFromStorage(userAddress);
+      if (localReferrer) {
+        return {
+          isBound: true,
+          referrerAddress: localReferrer,
+          fromLocalStorage: true
+        };
+      }
+      
       throw error;
     }
   }
@@ -145,22 +216,32 @@ class ContractInteractions {
     }
 
     try {
+      // 获取当前用户地址
+      const userAddress = await this.signer.getAddress();
+      
       // 检查用户是否已经绑定了推荐人
-      const bindingStatus = await this.checkReferrerBinding();
+      const bindingStatus = await this.checkReferrerBinding(userAddress);
       if (bindingStatus.isBound) {
         throw new Error('User has already bound a referrer');
       }
 
-      // 调用合约的bindReferrer函数
-      const tx = await this.stakingContract.bindReferrer(referrerAddress);
+      // 调用合约的bindReferrer函数并获取交易哈希
+      const result = await web3Wallet.callContractMethodWithTx('stakingContract', "bindReferrer", referrerAddress);
       
-      // 等待交易被确认
-      const receipt = await tx.wait();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to bind referrer');
+      }
+      
+      // 绑定成功后，保存到本地存储
+      this.saveReferrerToStorage(userAddress, referrerAddress);
       
       return {
         success: true,
-        hash: receipt.transactionHash,
-        receipt
+        hash: result.hash,
+        receipt: result.receipt,
+        transaction: result.transaction,
+        userAddress: userAddress,
+        referrerAddress: referrerAddress
       };
     } catch (error) {
       console.error('Error binding referrer:', error);

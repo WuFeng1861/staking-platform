@@ -70,6 +70,8 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { STORAGE_KEYS } from '@/config'
+import { ethers } from 'ethers'
+import contractInteractions from '@/utils/contractInteractions'
 
 const props = defineProps({
   isOpen: {
@@ -99,15 +101,50 @@ watch(() => props.isOpen, (newVal) => {
 const isValidAddress = computed(() => {
   if (!referrerInput.value) return false
   
-  // 简单的以太坊地址验证（以0x开头，长度为42）
-  const isValidFormat = /^0x[a-fA-F0-9]{40}$/.test(referrerInput.value)
+  // 使用 ethers 检查地址是否有效
+  const isValidFormat = ethers.isAddress(referrerInput.value)
   
   // 不能绑定自己为推荐人
   const userAddress = localStorage.getItem(STORAGE_KEYS.WALLET_ADDRESS)
   const notSelf = referrerInput.value.toLowerCase() !== userAddress?.toLowerCase()
   
-  return isValidFormat && notSelf
+  if (!isValidFormat) {
+    error.value = t('referral.invalidAddress')
+    return false
+  }
+  
+  if (!notSelf) {
+    error.value = t('referral.cannotBindSelf')
+    return false
+  }
+  
+  error.value = ''
+  return true
 })
+
+// 保存推荐人信息到本地存储
+const saveReferrerToStorage = (userAddress, referrerAddress) => {
+  try {
+    // 获取现有的推荐人映射关系
+    let referrersMap = {}
+    const storedReferrers = localStorage.getItem(STORAGE_KEYS.REFERRERS_MAP)
+    
+    if (storedReferrers) {
+      referrersMap = JSON.parse(storedReferrers)
+    }
+    
+    // 更新当前用户的推荐人
+    referrersMap[userAddress.toLowerCase()] = referrerAddress.toLowerCase()
+    
+    // 保存回本地存储
+    localStorage.setItem(STORAGE_KEYS.REFERRERS_MAP, JSON.stringify(referrersMap))
+    
+    return true
+  } catch (error) {
+    console.error('Failed to save referrer to storage:', error)
+    return false
+  }
+}
 
 // 绑定推荐人
 const bindReferrer = async () => {
@@ -119,20 +156,31 @@ const bindReferrer = async () => {
   try {
     isLoading.value = true
     
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // 调用合约绑定上级
+    const result = await contractInteractions.bindReferrer(referrerInput.value)
     
-    // 保存到本地存储（实际项目中应该调用API或智能合约）
-    localStorage.setItem(STORAGE_KEYS.REFERRER_ADDRESS, referrerInput.value)
-    
-    // 通知父组件
-    emit('bind', referrerInput.value)
-    
-    // 关闭模态框
-    close()
+    if (result && result.success) {
+      // 获取当前用户地址
+      const userAddress = localStorage.getItem(STORAGE_KEYS.WALLET_ADDRESS)
+      
+      if (!userAddress) {
+        throw new Error('User wallet address not found')
+      }
+      
+      // 保存到本地存储（使用新的对象格式）
+      saveReferrerToStorage(userAddress, referrerInput.value)
+      
+      // 通知父组件
+      emit('bind', referrerInput.value)
+      
+      // 关闭模态框
+      close()
+    } else {
+      throw new Error(result?.error || t('common.errorOccurred'))
+    }
   } catch (err) {
     console.error('Failed to bind referrer:', err)
-    error.value = t('common.errorOccurred')
+    error.value = err.message || t('common.errorOccurred')
   } finally {
     isLoading.value = false
   }
